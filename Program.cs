@@ -13,14 +13,14 @@ class Program
         Move easyMove = ai.FindBestMove(board, ChessAI.Difficulty.Easy);
         PrintMove(easyMove);
         board.MakeMove(easyMove);
-        board.PrintBoard();
+        PrintBoard(board);
 
         // ตัวอย่าง: AI ระดับกลาง (Medium)
         Console.WriteLine("\n=== ระดับกลาง (Medium) ===");
         Move mediumMove = ai.FindBestMove(board, ChessAI.Difficulty.Medium);
         PrintMove(mediumMove);
         board.MakeMove(mediumMove);
-        board.PrintBoard();
+        PrintBoard(board);
 
         // ตัวอย่าง: AI ระดับยาก (Hard) - ใช้กระดานเทียม
         Console.WriteLine("\n=== ระดับยาก (Hard) ===");
@@ -39,11 +39,23 @@ class Program
         Move hardMove = ai.FindBestMove(mockBoard, ChessAI.Difficulty.Hard);
         PrintMove(hardMove);
         mockBoard.MakeMove(hardMove);
-        mockBoard.PrintBoard();
+        PrintBoard(mockBoard);
     }
 
     static void PrintMove(Move move)
     {
         Console.WriteLine($"การเดินที่ดีที่สุด: ({move.FromX}, {move.FromY}) -> ({move.ToX}, {move.ToY})");
+    }
+
+    static void PrintBoard(ChessBoard board)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            for (int j = 0; j < 8; j++)
+            {
+                Console.Write(board.Board[i, j] + " ");
+            }
+            Console.WriteLine();
+        }
     }
 }

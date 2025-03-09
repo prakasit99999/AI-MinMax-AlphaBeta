@@ -5,7 +5,8 @@ public class ChessBoard
 {
     // ======== Properties ========
     public int[,] Board { get; protected set; }
-    public bool IsWhiteTurn { get; private set; }
+    public bool IsWhiteTurn { get; protected set; } // ตั้งค่า setter เป็น protected
+
 
     // ข้อมูลสำหรับการ Castling
     public bool WhiteKingMoved { get; private set; }
@@ -19,6 +20,7 @@ public class ChessBoard
     public Square? EnPassantTarget { get; private set; }
 
     // ======== Constructor ========
+
     public ChessBoard()
     {
         Board = new int[8, 8];
@@ -174,6 +176,19 @@ public class ChessBoard
             else if (fromX == 7 && fromY == 7) // Black Kingside Rook
                 BlackRookKingSideMoved = true;
         }
+    }
+
+    public void PrintBoard()
+    {
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                Console.Write($"{Board[x, y],3}");
+            }
+            Console.WriteLine();
+        }
+        Console.WriteLine($"Turn: {(IsWhiteTurn ? "White" : "Black")}\n");
     }
 }
 
