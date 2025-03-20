@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AI-MinMax-AlphaBeta": {
+      "commandName": "Project",
+      "remoteDebugEnabled": true
+    }
+  }
+}

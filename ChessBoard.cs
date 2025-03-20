@@ -5,10 +5,9 @@ public class ChessBoard
 {
     // ======== Properties ========
     public int[,] Board { get; protected set; }
-    public bool IsWhiteTurn { get; protected set; } // ตั้งค่า setter เป็น protected
+    public bool IsWhiteTurn { get; protected set; }
 
-
-    // ข้อมูลสำหรับการ Castling
+    // Castling Flags
     public bool WhiteKingMoved { get; private set; }
     public bool WhiteRookKingSideMoved { get; private set; }
     public bool WhiteRookQueenSideMoved { get; private set; }
@@ -16,11 +15,10 @@ public class ChessBoard
     public bool BlackRookKingSideMoved { get; private set; }
     public bool BlackRookQueenSideMoved { get; private set; }
 
-    // ข้อมูลสำหรับ En Passant
+    // En Passant
     public Square? EnPassantTarget { get; private set; }
 
     // ======== Constructor ========
-
     public ChessBoard()
     {
         Board = new int[8, 8];
@@ -31,33 +29,33 @@ public class ChessBoard
     // ======== Initialize Board ========
     private void InitializeBoard()
     {
-        // White Pieces
-        Board[0, 0] = 4; // Rook
-        Board[0, 1] = 2; // Knight
-        Board[0, 2] = 3; // Bishop
-        Board[0, 3] = 5; // Queen
-        Board[0, 4] = 6; // King
-        Board[0, 5] = 3; // Bishop
-        Board[0, 6] = 2; // Knight
-        Board[0, 7] = 4; // Rook
+        // White Pieces (แถว 1 และ 2 ใน chess notation)
+        Board[7, 0] = 4; // Rook (a1)
+        Board[7, 1] = 2; // Knight (b1)
+        Board[7, 2] = 3; // Bishop (c1)
+        Board[7, 3] = 5; // Queen (d1)
+        Board[7, 4] = 6; // King (e1)
+        Board[7, 5] = 3; // Bishop (f1)
+        Board[7, 6] = 2; // Knight (g1)
+        Board[7, 7] = 4; // Rook (h1)
 
-        // White Pawns
+        // White Pawns (แถว 2 ใน chess notation)
         for (int i = 0; i < 8; i++)
-            Board[1, i] = 1;
+            Board[6, i] = 1;
 
-        // Black Pieces
-        Board[7, 0] = -4; // Rook
-        Board[7, 1] = -2; // Knight
-        Board[7, 2] = -3; // Bishop
-        Board[7, 3] = -5; // Queen
-        Board[7, 4] = -6; // King
-        Board[7, 5] = -3; // Bishop
-        Board[7, 6] = -2; // Knight
-        Board[7, 7] = -4; // Rook
+        // Black Pieces (แถว 8 และ 7 ใน chess notation)
+        Board[0, 0] = -4; // Rook (a8)
+        Board[0, 1] = -2; // Knight (b8)
+        Board[0, 2] = -3; // Bishop (c8)
+        Board[0, 3] = -5; // Queen (d8)
+        Board[0, 4] = -6; // King (e8)
+        Board[0, 5] = -3; // Bishop (f8)
+        Board[0, 6] = -2; // Knight (g8)
+        Board[0, 7] = -4; // Rook (h8)
 
-        // Black Pawns
+        // Black Pawns (แถว 7 ใน chess notation)
         for (int i = 0; i < 8; i++)
-            Board[6, i] = -1;
+            Board[1, i] = -1;
     }
 
     // ======== Make Move ========
@@ -65,17 +63,21 @@ public class ChessBoard
     {
         int piece = Board[move.FromX, move.FromY];
 
-        // บันทึกข้อมูล En Passant ก่อนทำการเดิน
+        // Handle En Passant
         UpdateEnPassantTarget(move, piece);
 
-        // เคลื่อนย้ายหมาก
+        // Handle Castling
+        HandleCastling(move, piece);
+
+        // Move the piece
         Board[move.ToX, move.ToY] = piece;
         Board[move.FromX, move.FromY] = 0;
 
-        // อัพเดทสถานะ Castling
-        UpdateCastlingRights(move, piece);
+        // Handle Promotion
+        if (move.PromotionPiece != 0)
+            Board[move.ToX, move.ToY] = move.PromotionPiece;
 
-        // เปลี่ยนตาเล่น
+        // Switch turn
         IsWhiteTurn = !IsWhiteTurn;
     }
 
@@ -83,22 +85,26 @@ public class ChessBoard
     public ChessBoard Clone()
     {
         ChessBoard newBoard = new ChessBoard();
-        newBoard.Board = (int[,])Board.Clone();
-        newBoard.IsWhiteTurn = IsWhiteTurn;
-        newBoard.WhiteKingMoved = WhiteKingMoved;
-        newBoard.WhiteRookKingSideMoved = WhiteRookKingSideMoved;
-        newBoard.WhiteRookQueenSideMoved = WhiteRookQueenSideMoved;
-        newBoard.BlackKingMoved = BlackKingMoved;
-        newBoard.BlackRookKingSideMoved = BlackRookKingSideMoved;
-        newBoard.BlackRookQueenSideMoved = BlackRookQueenSideMoved;
-        newBoard.EnPassantTarget = EnPassantTarget;
+        newBoard.Board = (int[,])this.Board.Clone(); // Deep copy of the board array
+        newBoard.IsWhiteTurn = this.IsWhiteTurn;
+
+        // Copy castling flags
+        newBoard.WhiteKingMoved = this.WhiteKingMoved;
+        newBoard.WhiteRookKingSideMoved = this.WhiteRookKingSideMoved;
+        newBoard.WhiteRookQueenSideMoved = this.WhiteRookQueenSideMoved;
+        newBoard.BlackKingMoved = this.BlackKingMoved;
+        newBoard.BlackRookKingSideMoved = this.BlackRookKingSideMoved;
+        newBoard.BlackRookQueenSideMoved = this.BlackRookQueenSideMoved;
+
+        // Copy En Passant target
+        newBoard.EnPassantTarget = this.EnPassantTarget;
+
         return newBoard;
     }
 
     // ======== Check Game Over ========
     public bool IsGameOver()
     {
-        // ตรวจสอบการ Checkmate หรือ Stalemate
         List<Move> legalMoves = MoveGenerator.GenerateMoves(this);
         return legalMoves.Count == 0;
     }
@@ -106,11 +112,8 @@ public class ChessBoard
     // ======== Check King Safety ========
     public bool IsInCheck(bool isWhite)
     {
-        // หาตำแหน่ง King
         int king = isWhite ? 6 : -6;
         Square kingPos = FindKingPosition(king);
-
-        // ตรวจสอบว่าตำแหน่ง King ถูกโจมตีหรือไม่
         return IsSquareUnderAttack(kingPos, !isWhite);
     }
 
@@ -130,8 +133,7 @@ public class ChessBoard
 
     private bool IsSquareUnderAttack(Square square, bool byWhite)
     {
-        // สร้างกระดานจำลองเพื่อตรวจสอบการโจมตี
-        ChessBoard tempBoard = Clone();
+        ChessBoard tempBoard = this.Clone();
         tempBoard.IsWhiteTurn = byWhite;
         List<Move> attacks = MoveGenerator.GenerateMoves(tempBoard);
 
@@ -145,54 +147,58 @@ public class ChessBoard
 
     private void UpdateEnPassantTarget(Move move, int piece)
     {
-        // เบี้ยเดิน 2 ช่อง
         if (Math.Abs(piece) == 1 && Math.Abs(move.ToX - move.FromX) == 2)
             EnPassantTarget = new Square((move.FromX + move.ToX) / 2, move.FromY);
         else
             EnPassantTarget = null;
     }
 
-    private void UpdateCastlingRights(Move move, int piece)
+    private void HandleCastling(Move move, int piece)
     {
-        int fromX = move.FromX;
-        int fromY = move.FromY;
-
-        // ตรวจสอบการเคลื่อนของ King หรือ Rook
-        if (Math.Abs(piece) == 6) // King
+        if (Math.Abs(piece) == 6) // King move
         {
-            if (piece == 6) // White King
+            if (piece == 6)
                 WhiteKingMoved = true;
-            else // Black King
+            else
                 BlackKingMoved = true;
         }
-        else if (Math.Abs(piece) == 4) // Rook
+        else if (Math.Abs(piece) == 4) // Rook move
         {
-            if (fromX == 0 && fromY == 0) // White Queenside Rook
+            if (move.FromX == 0 && move.FromY == 0)
                 WhiteRookQueenSideMoved = true;
-            else if (fromX == 0 && fromY == 7) // White Kingside Rook
+            else if (move.FromX == 0 && move.FromY == 7)
                 WhiteRookKingSideMoved = true;
-            else if (fromX == 7 && fromY == 0) // Black Queenside Rook
+            else if (move.FromX == 7 && move.FromY == 0)
                 BlackRookQueenSideMoved = true;
-            else if (fromX == 7 && fromY == 7) // Black Kingside Rook
+            else if (move.FromX == 7 && move.FromY == 7)
                 BlackRookKingSideMoved = true;
         }
     }
 
+    // ======== Display Board ========
     public void PrintBoard()
     {
+        Dictionary<int, string> symbols = new Dictionary<int, string>
+        {
+            { 1, "♙" }, { -1, "♟" }, { 2, "♘" }, { -2, "♞" },
+            { 3, "♗" }, { -3, "♝" }, { 4, "♖" }, { -4, "♜" },
+            { 5, "♕" }, { -5, "♛" }, { 6, "♔" }, { -6, "♚" },
+            { 0, "·" }
+        };
+
+        Console.WriteLine("  a  b  c  d  e  f  g  h");
         for (int x = 0; x < 8; x++)
         {
+            Console.Write($"{8 - x} ");
             for (int y = 0; y < 8; y++)
-            {
-                Console.Write($"{Board[x, y],3}");
-            }
-            Console.WriteLine();
+                Console.Write($"{symbols[Board[x, y]]} ");
+            Console.WriteLine($"{8 - x}");
         }
-        Console.WriteLine($"Turn: {(IsWhiteTurn ? "White" : "Black")}\n");
+        Console.WriteLine("  a  b  c  d  e  f  g  h");
+        Console.WriteLine($"ตาเล่น: {(IsWhiteTurn ? "ขาว" : "ดำ")}\n");
     }
 }
 
-// คลาส Square สำหรับเก็บตำแหน่ง X, Y
 public struct Square
 {
     public int X { get; }
