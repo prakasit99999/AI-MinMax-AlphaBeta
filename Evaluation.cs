@@ -6,17 +6,17 @@ public class Evaluation
     private static readonly Dictionary<int, int> PieceValues = new Dictionary<int, int>
     {
         { 1, 100 },   // White Pawn
-        { -1, 100 },  // Black Pawn
+        { -1, -100 },  // Black Pawn
         { 2, 300 },   // White Knight
-        { -2, 300 },  // Black Knight
+        { -2, -300 },  // Black Knight
         { 3, 325 },   // White Bishop (Bishop Pair ได้เปรียบ)
-        { -3, 325 },  // Black Bishop
+        { -3, -325 },  // Black Bishop
         { 4, 500 },   // White Rook
         { -4, 500 },  // Black Rook
         { 5, 900 },   // White Queen
-        { -5, 900 },  // Black Queen
+        { -5, -900 },  // Black Queen
         { 6, 10000 }, // White King
-        { -6, 10000 } // Black King
+        { -6, -10000 } // Black King
     };
 
     // ========== คะแนนตำแหน่งหมาก ==========
