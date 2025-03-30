@@ -12,7 +12,7 @@ public class Evaluation
         { 3, 325 },   // White Bishop (Bishop Pair ได้เปรียบ)
         { -3, -325 },  // Black Bishop
         { 4, 500 },   // White Rook
-        { -4, 500 },  // Black Rook
+        { -4, -500 },  // Black Rook
         { 5, 900 },   // White Queen
         { -5, -900 },  // Black Queen
         { 6, 10000 }, // White King
@@ -86,14 +86,24 @@ public class Evaluation
     private static int CalculateMaterialScore(ChessBoard board)
     {
         int material = 0;
+        int whiteBishopCount = 0, blackBishopCount = 0;
+
         for (int x = 0; x < 8; x++)
         {
             for (int y = 0; y < 8; y++)
             {
                 int piece = board.Board[x, y];
                 material += PieceValues.TryGetValue(piece, out int value) ? value : 0;
+
+                if (piece == 3) whiteBishopCount++;
+                if (piece == -3) blackBishopCount++;
             }
         }
+
+        // โบนัส Bishop Pair
+        if (whiteBishopCount >= 2) material += 50;
+        if (blackBishopCount >= 2) material -= 50;
+
         return material;
     }
 
@@ -108,24 +118,21 @@ public class Evaluation
                 int piece = board.Board[x, y];
                 int absPiece = Math.Abs(piece);
                 int sign = piece > 0 ? 1 : -1;
-
-                // ปรับตำแหน่งตามสี (White = ด้านล่าง, Black = ด้านบน)
                 int evalX = piece > 0 ? x : 7 - x;
 
                 switch (absPiece)
                 {
-                    case 1: // เบี้ย
+                    case 1:
                         positionalScore += sign * PawnPositionScore[evalX, y];
                         break;
-                    case 2: // ม้า
+                    case 2:
                         positionalScore += sign * KnightPositionScore[evalX, y];
                         break;
-                    case 3: // บิชอป
+                    case 3:
                         positionalScore += sign * BishopPositionScore[evalX, y];
                         break;
-                    case 6: // ราชา (Endgame ให้เดิน King เข้าสู่ศูนย์กลาง)
-                        if (isEndgame)
-                            positionalScore += sign * (Math.Abs(3 - x) + Math.Abs(3 - y)) * (-10); // ยิ่งใกล้ศูนย์กลางยิ่งดี
+                    case 6 when isEndgame:
+                        positionalScore += sign * (Math.Abs(3 - x) + Math.Abs(3 - y)) * (-10);
                         break;
                 }
             }
@@ -136,19 +143,37 @@ public class Evaluation
     // ========== 3. คำนวณ Mobility (การเคลื่อนไหวของหมาก) ==========
     private static int CalculateMobilityScore(ChessBoard board)
     {
+        int whiteMobility = CountMobilityForColor(board, isWhite: true);
+        int blackMobility = CountMobilityForColor(board, isWhite: false);
+        return whiteMobility - blackMobility;
+    }
+
+    private static int CountMobilityForColor(ChessBoard board, bool isWhite)
+    {
         int mobility = 0;
-        List<Move> moves = MoveGenerator.GenerateMoves(board);
-        foreach (Move move in moves)
+        var simulatedBoard = board.Clone();
+
+        // วนลูปทุกช่องเพื่อหาเม็ดหมากของสีที่ต้องการ
+        for (int x = 0; x < 8; x++)
         {
-            int piece = Math.Abs(board.Board[move.FromX, move.FromY]);
-            // ให้คะแนนตามประเภทหมาก (Queen สูงสุด, Pawn ต่ำสุด)
-            mobility += piece switch
+            for (int y = 0; y < 8; y++)
             {
-                5 => 3,   // Queen
-                4 => 2,   // Rook
-                2 or 3 => 1, // Knight/Bishop
-                _ => 0     // หมากอื่นไม่นับ
-            };
+                int piece = simulatedBoard.Board[x, y];
+                // ตรวจสอบว่าหมากเป็นสีที่ต้องการ
+                if ((isWhite && piece > 0) || (!isWhite && piece < 0))
+                {
+                    // ดึงประเภทของหมาก
+                    int pieceType = Math.Abs(piece);
+                    // นับคะแนนตามประเภท
+                    mobility += pieceType switch
+                    {
+                        5 => 3,   // Queen
+                        4 => 2,   // Rook
+                        2 or 3 => 1, // Knight/Bishop
+                        _ => 0
+                    };
+                }
+            }
         }
         return mobility;
     }
@@ -197,33 +222,28 @@ public class Evaluation
         return safetyScore;
     }
 
+
     // ========== 5. ตรวจสอบโครงสร้างเบี้ย ==========
     private static int EvaluatePawnStructure(ChessBoard board)
     {
         int pawnScore = 0;
-        // ตรวจสอบ Isolated Pawns (เบี้ยโดดเดี่ยว)
-        for (int y = 0; y < 8; y++)
+        for (int x = 0; x < 8; x++)
         {
-            bool whiteIsolated = true, blackIsolated = true;
-            for (int x = 0; x < 8; x++)
+            for (int y = 0; y < 8; y++)
             {
-                if (board.Board[x, y] == 1)
+                int piece = board.Board[x, y];
+                if (piece == 1 || piece == -1)
                 {
-                    // ตรวจสอบเบี้ยขาว: มีเบี้ยเพื่อนบ้านในแถวข้างเคียงหรือไม่
-                    if ((y > 0 && HasPawnInFile(board, y - 1, 1)) ||
-                        (y < 7 && HasPawnInFile(board, y + 1, 1)))
-                        whiteIsolated = false;
-                }
-                else if (board.Board[x, y] == -1)
-                {
-                    // ตรวจสอบเบี้ยดำ
-                    if ((y > 0 && HasPawnInFile(board, y - 1, -1)) ||
-                        (y < 7 && HasPawnInFile(board, y + 1, -1)))
-                        blackIsolated = false;
+                    bool isIsolated = true;
+                    int pawnType = piece > 0 ? 1 : -1;
+                    if ((y > 0 && HasPawnInFile(board, y - 1, pawnType)) ||
+                        (y < 7 && HasPawnInFile(board, y + 1, pawnType)))
+                        isIsolated = false;
+
+                    if (isIsolated)
+                        pawnScore += piece == 1 ? -20 : 20;
                 }
             }
-            if (whiteIsolated) pawnScore -= 20;
-            if (blackIsolated) pawnScore += 20;
         }
         return pawnScore;
     }
@@ -242,17 +262,19 @@ public class Evaluation
     private static bool IsEndgame(ChessBoard board)
     {
         int totalMaterial = 0;
+        int queenCount = 0;
+
         for (int x = 0; x < 8; x++)
         {
             for (int y = 0; y < 8; y++)
             {
-                int piece = Math.Abs(board.Board[x, y]);
-                if (piece == 0) continue; // ข้ามช่องว่าง
-                if (piece == 5 || piece == 4) // Queen หรือ Rook ยังอยู่
-                    return false;
+                int piece = board.Board[x, y];
+                if (piece == 0) continue;
+
                 totalMaterial += PieceValues[piece];
+                if (Math.Abs(piece) == 5) queenCount++;
             }
         }
-        return totalMaterial < 2000;
+        return queenCount == 0 && Math.Abs(totalMaterial) < 2000;
     }
 }

@@ -117,6 +117,8 @@ public static class MoveGenerator
                 }
             }
         }
+
+
     }
 
     private static void GenerateBishopMoves(ChessBoard board, int x, int y, List<Move> moves)

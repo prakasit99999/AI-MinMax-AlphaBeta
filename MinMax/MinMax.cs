@@ -10,7 +10,7 @@ public class Minimax : SearchAlgorithm
         {
             ChessBoard newBoard = board.Clone();
             newBoard.MakeMove(move);
-
+            // คำนวณคะแนนจากการค้นหาแบบ Recursive
             int score = MinimaxRecursive(newBoard, depth - 1, false);
             if (score > bestScore)
             {

@@ -95,7 +95,6 @@ class Program
     }
 
     // ======== โหมด AI vs AI ========
-    // ======== โหมด AI vs AI ========
     static void PlayAIVsAI()
     {
         // เลือกระดับความยากสำหรับ White AI และ Black AI

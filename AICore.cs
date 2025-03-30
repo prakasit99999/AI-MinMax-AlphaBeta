@@ -1,6 +1,6 @@
 using System;
 
-public class ChessAI
+public class AICore
 {
     public enum Difficulty { Easy, Medium, Hard }
 
@@ -16,12 +16,12 @@ public class ChessAI
                 depth = 1;
                 break;
             case Difficulty.Medium:
-                //algorithm = new AlphaBetaPruning();
-                //depth = 3;
+                algorithm = new Minimax();
+                depth = 3;
                 break;
             case Difficulty.Hard:
-                //algorithm = new AlphaBetaPruning();
-                //depth = 5;
+                algorithm = new Minimax();
+                depth = 5;
                 break;
             default:
                 throw new ArgumentException("Invalid difficulty level");
