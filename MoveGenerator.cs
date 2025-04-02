@@ -82,11 +82,12 @@ public static class MoveGenerator
     {
         if (toX == 0 || toX == 7)
         {
+            // สร้างการเดิน Promote ทั้ง 4 ตัว (Queen, Rook, Bishop, Knight)
             int[] promotionPieces = { 5, 4, 3, 2 };
-            foreach (int piece in promotionPieces)
+            foreach (int promo in promotionPieces)
             {
                 Move promoMove = new Move(fromX, fromY, toX, toY);
-                promoMove.PromotionPiece = board.IsWhiteTurn ? piece : -piece; // <-- ใช้งาน setter
+                promoMove.PromotionPiece = board.IsWhiteTurn ? promo : -promo;
                 moves.Add(promoMove);
             }
         }

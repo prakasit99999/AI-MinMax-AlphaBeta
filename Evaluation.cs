@@ -58,6 +58,33 @@ public class Evaluation
         { -20, -10, -10, -10, -10, -10, -10, -20 }
     };
 
+    //คะแนนตำแหน่ง Rook
+    private static readonly int[,] RookPositionScore = new int[8, 8]
+    {
+        { 0, 0, 0, 0, 0, 0, 0, 0 },
+        { 5, 10, 10, 10, 10, 10, 10, 5 },
+        { -5, 0, 0, 0, 0, 0, 0, -5 },
+        { -5, 0, 0, 0, 0, 0, 0, -5 },
+        { -5, 0, 0, 0, 0, 0, 0, -5 },
+        { -5, 0, 0, 0, 0, 0, 0, -5 },
+        { -5, 0, 0, 0, 0, 0, 0, -5 },
+        { 0, 0, 0, 5, 5, 0, 0, 0 }
+    };
+
+    //คะแนนตำแหน่ง Queen
+    private static readonly int[,] QueenPositionScore = new int[8, 8]
+    {
+        { -20, -10, -10, -5, -5, -10, -10, -20 },
+        { -10,   0,   0,  0,  0,   0,   0, -10 },
+        { -10,   0,   5,  5,  5,   5,   0, -10 },
+        { -5,   0,   5,  5,  5,   5,   0, -5 },
+        { 0,   0,   5,  5,  5,   5,   0, -5 },
+        { -10,   5,   5,  5,  5,   5,   0, -10 },
+        { -10,   0,   5,  0,  0,   0,   0, -10 },
+        { -20, -10, -10, -5, -5, -10, -10, -20 }
+    };
+
+
     // ========== กลยุทธ์เพิ่มเติม ==========
     public static int Evaluate(ChessBoard board)
     {
@@ -130,6 +157,12 @@ public class Evaluation
                         break;
                     case 3:
                         positionalScore += sign * BishopPositionScore[evalX, y];
+                        break;
+                    case 4:
+                        positionalScore += sign * RookPositionScore[evalX, y];
+                        break;
+                    case 5:
+                        positionalScore += sign * QueenPositionScore[evalX, y];
                         break;
                     case 6 when isEndgame:
                         positionalScore += sign * (Math.Abs(3 - x) + Math.Abs(3 - y)) * (-10);

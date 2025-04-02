@@ -58,7 +58,7 @@ class Program
                 Console.Write("การเดินของคุณ (เช่น e2e4): ");
                 string moveInput = Console.ReadLine().ToLower();
 
-                if (ParseMove(moveInput, out Move playerMove))
+                if (ParseMove(moveInput, board, out Move playerMove))
                 {
                     if (IsLegalMove(board, playerMove))
                     {
@@ -150,23 +150,37 @@ class Program
     }
 
     // ======== แปลงคำสั่งผู้เล่นเป็น Move Object ========
-    static bool ParseMove(string input, out Move move)
+    // แก้ไขพารามิเตอร์เมธอดให้รับ ChessBoard
+    static bool ParseMove(string input, ChessBoard board, out Move move)
     {
         move = null;
         input = input.Replace(" ", "").Replace("-", "");
-        if (input.Length != 4) return false;
+        if (input.Length < 4 || input.Length > 5) return false;
 
         try
         {
-            // แปลง File (ตัวอักษร) เป็นคอลัมน์ (y)
-            int fromY = input[0] - 'a'; // a=0, b=1, ..., h=7
+            // แปลงส่วนการเดิน
+            int fromY = input[0] - 'a';
             int toY = input[2] - 'a';
-
-            // แปลง Rank (ตัวเลข) เป็นแถว (x)
-            int fromX = 8 - (input[1] - '0'); // 8 - rank (chess) = array index
+            int fromX = 8 - (input[1] - '0');
             int toX = 8 - (input[3] - '0');
 
             move = new Move(fromX, fromY, toX, toY);
+
+            // ตรวจสอบ Promotion
+            if (input.Length == 5)
+            {
+                int promoPiece = input[4] switch
+                {
+                    'q' => 5, // Queen
+                    'r' => 4, // Rook
+                    'b' => 3, // Bishop
+                    'n' => 2, // Knight
+                    _ => 0
+                };
+                if (promoPiece == 0) return false;
+                move.PromotionPiece = board.IsWhiteTurn ? promoPiece : -promoPiece;
+            }
             return true;
         }
         catch
@@ -218,11 +232,27 @@ class Program
         }
     }
 
+  
+
     // ======== แสดงการเดิน ========
     static void PrintMove(Move move, string player)
     {
         string from = $"{(char)('a' + move.FromY)}{8 - move.FromX}";
         string to = $"{(char)('a' + move.ToY)}{8 - move.ToX}";
-        Console.WriteLine($"{player} เดิน: {from} -> {to}");
+        string promo = move.PromotionPiece != 0 ? 
+            $" [Promote to {GetPieceSymbol(move.PromotionPiece)}]" : "";
+        Console.WriteLine($"{player} เดิน: {from} -> {to}{promo}");
+    }
+
+    private static string GetPieceSymbol(int piece)
+    {
+        return Math.Abs(piece) switch
+        {
+            5 => "Queen",
+            4 => "Rook",
+            3 => "Bishop",
+            2 => "Knight",
+            _ => ""
+        };
     }
 }

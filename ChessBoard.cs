@@ -180,12 +180,14 @@ public class ChessBoard
     {
         Dictionary<int, string> symbols = new Dictionary<int, string>
         {
-            { 1, "♙" }, { -1, "♟" }, { 2, "♘" }, { -2, "♞" },
-            { 3, "♗" }, { -3, "♝" }, { 4, "♖" }, { -4, "♜" },
-            { 5, "♕" }, { -5, "♛" }, { 6, "♔" }, { -6, "♚" },
-            { 0, "·" }
+            { 1, "♙" }, { -1, "♟" }, // เบี้ย
+            { 2, "♘" }, { -2, "♞" }, // ม้า
+            { 3, "♗" }, { -3, "♝" }, // บิชอป
+            { 4, "♖" }, { -4, "♜" }, // เรือ
+            { 5, "♕" }, { -5, "♛" }, // ควีน
+            { 6, "♔" }, { -6, "♚" }, // ราชา
+            { 0, "·" }  // ช่องว่าง
         };
-
         Console.WriteLine("  a  b  c  d  e  f  g  h");
         for (int x = 0; x < 8; x++)
         {
@@ -198,6 +200,8 @@ public class ChessBoard
         Console.WriteLine($"ตาเล่น: {(IsWhiteTurn ? "ขาว" : "ดำ")}\n");
     }
 }
+
+
 
 public struct Square
 {
