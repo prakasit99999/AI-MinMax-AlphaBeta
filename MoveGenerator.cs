@@ -40,8 +40,31 @@ public static class MoveGenerator
                 }
             }
         }
-        return moves;
+        // กรองการเดินที่กิน King
+        return FilterLegalMoves(board, moves)
+              .Where(m => Math.Abs(board.Board[m.ToX, m.ToY]) != 6)
+              .ToList();
     }
+
+    // ตรวจสอบการเดินที่ถูกต้องตามกฎ
+    private static List<Move> FilterLegalMoves(ChessBoard board, List<Move> pseudoMoves)
+    {
+        List<Move> legalMoves = new List<Move>();
+        bool isWhite = board.IsWhiteTurn;
+
+        foreach (Move move in pseudoMoves)
+        {
+            ChessBoard tempBoard = board.Clone();
+            tempBoard.MakeMove(move);
+            if (!tempBoard.IsInCheck(isWhite))
+            {
+                legalMoves.Add(move);
+            }
+        }
+        return legalMoves;
+    }
+
+
 
     // ========== ฟังก์ชันสร้างการเดินของหมากแต่ละประเภท ==========
     private static void GeneratePawnMoves(ChessBoard board, int x, int y, List<Move> moves)
@@ -100,9 +123,9 @@ public static class MoveGenerator
     private static void GenerateKnightMoves(ChessBoard board, int x, int y, List<Move> moves)
     {
         int[,] knightMoves = {
-            {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
-            {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
-        };
+        {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
+        {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
+    };
 
         for (int i = 0; i < knightMoves.GetLength(0); i++)
         {
@@ -114,14 +137,17 @@ public static class MoveGenerator
                 int targetPiece = board.Board[newX, newY];
                 if (targetPiece == 0 || (board.IsWhiteTurn ? targetPiece < 0 : targetPiece > 0))
                 {
-                    moves.Add(new Move(x, y, newX, newY));
+                    Move move = new Move(x, y, newX, newY);
+                    ChessBoard tempBoard = board.Clone();
+                    tempBoard.MakeMove(move);
+                    if (!tempBoard.IsInCheck(board.IsWhiteTurn))
+                    {
+                        moves.Add(move);
+                    }
                 }
             }
         }
-
-
     }
-
     private static void GenerateBishopMoves(ChessBoard board, int x, int y, List<Move> moves)
     {
         int[,] directions = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
@@ -147,6 +173,7 @@ public static class MoveGenerator
             {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
         };
 
+        // เดินปกติ
         for (int i = 0; i < kingMoves.GetLength(0); i++)
         {
             int newX = x + kingMoves[i, 0];
@@ -165,31 +192,60 @@ public static class MoveGenerator
         // Castling
         int piece = board.Board[x, y];
         bool isWhite = piece > 0;
-        if ((isWhite && !board.WhiteKingMoved) || (!isWhite && !board.BlackKingMoved))
-        {
-            // Kingside Castling
-            if ((isWhite && !board.WhiteRookKingSideMoved) || (!isWhite && !board.BlackRookKingSideMoved))
-            {
-                int rookY = 7;
-                if (board.Board[x, rookY] == (isWhite ? 4 : -4) &&
-                    board.Board[x, y + 1] == 0 && board.Board[x, y + 2] == 0)
-                {
-                    moves.Add(new Move(x, y, x, y + 2));
-                }
-            }
+        int row = isWhite ? 7 : 0;
 
-            // Queenside Castling
-            if ((isWhite && !board.WhiteRookQueenSideMoved) || (!isWhite && !board.BlackRookQueenSideMoved))
-            {
-                int rookY = 0;
-                if (board.Board[x, rookY] == (isWhite ? 4 : -4) &&
-                    board.Board[x, y - 1] == 0 && board.Board[x, y - 2] == 0 && board.Board[x, y - 3] == 0)
-                {
-                    moves.Add(new Move(x, y, x, y - 2));
-                }
-            }
+        // Kingside Castling
+        if (CanCastleKingside(board, isWhite))
+        {
+            moves.Add(new Move(x, y, row, 6));
+        }
+
+        // Queenside Castling
+        if (CanCastleQueenside(board, isWhite))
+        {
+            moves.Add(new Move(x, y, row, 2));
         }
     }
+    // ========== ตรวจสอบเงื่อนไข Castling ==========
+    private static bool CanCastleKingside(ChessBoard board, bool isWhite)
+    {
+        int row = isWhite ? 7 : 0;
+        bool kingMoved = isWhite ? board.WhiteKingMoved : board.BlackKingMoved;
+        bool rookMoved = isWhite ? board.WhiteRookKingSideMoved : board.BlackRookKingSideMoved;
+
+        // ตรวจสอบว่า Rook ยังอยู่ที่ตำแหน่งเริ่มต้น และไม่ถูกกิน
+        bool rookPresent = board.Board[row, 7] == (isWhite ? 4 : -4);
+
+        return !kingMoved && !rookMoved && rookPresent &&
+               board.Board[row, 5] == 0 && board.Board[row, 6] == 0 &&
+               !IsSquareUnderAttack(board, new Square(row, 4)) &&
+               !IsSquareUnderAttack(board, new Square(row, 5)) &&
+               !IsSquareUnderAttack(board, new Square(row, 6));
+    }
+
+    private static bool CanCastleQueenside(ChessBoard board, bool isWhite)
+    {
+        int row = isWhite ? 7 : 0;
+        bool kingMoved = isWhite ? board.WhiteKingMoved : board.BlackKingMoved;
+        bool rookMoved = isWhite ? board.WhiteRookQueenSideMoved : board.BlackRookQueenSideMoved;
+
+        // ตรวจสอบว่า Rook ยังอยู่ที่ตำแหน่งเริ่มต้น และไม่ถูกกิน
+        bool rookPresent = board.Board[row, 0] == (isWhite ? 4 : -4);
+
+        return !kingMoved && !rookMoved && rookPresent &&
+               board.Board[row, 1] == 0 && board.Board[row, 2] == 0 && board.Board[row, 3] == 0 &&
+               !IsSquareUnderAttack(board, new Square(row, 4)) &&
+               !IsSquareUnderAttack(board, new Square(row, 3)) &&
+               !IsSquareUnderAttack(board, new Square(row, 2));
+    }
+
+    // ========== ตรวจสอบความปลอดภัย ==========
+    private static bool IsSquareUnderAttack(ChessBoard board, Square square)
+    {
+        ChessBoard tempBoard = board.CloneWithTurn(!board.IsWhiteTurn);
+        return board.IsSquareUnderAttack(square, !board.IsWhiteTurn);
+    }
+
 
     private static void GenerateSlidingMoves(ChessBoard board, int x, int y, int[,] directions, List<Move> moves)
     {

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 
 public class Evaluation
 {
+
     // ========== ค่าของตัวหมาก ==========
     private static readonly Dictionary<int, int> PieceValues = new Dictionary<int, int>
     {
@@ -290,6 +291,8 @@ public class Evaluation
         }
         return false;
     }
+
+ 
 
     // ========== ตรวจสอบว่าเป็นเกม Endgame ==========
     private static bool IsEndgame(ChessBoard board)

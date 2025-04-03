@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 public class ChessBoard
 {
@@ -17,6 +18,12 @@ public class ChessBoard
 
     // En Passant
     public Square? EnPassantTarget { get; private set; }
+
+    // Draw Conditions
+    public List<string> PositionHistory { get; } = new List<string>();
+    public int FiftyMoveCounter { get; private set; }
+
+
 
     // ======== Constructor ========
     public ChessBoard()
@@ -62,25 +69,58 @@ public class ChessBoard
     public void MakeMove(Move move)
     {
         int piece = Board[move.FromX, move.FromY];
+        int targetPiece = Board[move.ToX, move.ToY];
 
-        // Handle En Passant
+        // ======== อัปเดตกฎ 50 การเดิน ========
+        if (Math.Abs(piece) == 1 || targetPiece != 0)
+            FiftyMoveCounter = 0;
+        else
+            FiftyMoveCounter++;
+
+        // ======== บันทึกประวัติกระดาน ========
+        string currentPosition = SerializeBoard();
+        PositionHistory.Add(currentPosition);
+
+        // ======== อัปเดตสถานะ King และ Rook เมื่อเคลื่อนที่ ========
+        if (Math.Abs(piece) == 6) // King เคลื่อนที่
+        {
+            if (piece > 0) WhiteKingMoved = true;
+            else BlackKingMoved = true;
+        }
+        else if (Math.Abs(piece) == 4) // Rook เคลื่อนที่
+        {
+            // ตรวจสอบตำแหน่งเริ่มต้นของ Rook
+            if (piece > 0) // White Rook
+            {
+                if (move.FromX == 7 && move.FromY == 7)
+                    WhiteRookKingSideMoved = true;
+                else if (move.FromX == 7 && move.FromY == 0)
+                    WhiteRookQueenSideMoved = true;
+            }
+            else // Black Rook
+            {
+                if (move.FromX == 0 && move.FromY == 7)
+                    BlackRookKingSideMoved = true;
+                else if (move.FromX == 0 && move.FromY == 0)
+                    BlackRookQueenSideMoved = true;
+            }
+        }
+
+        // ======== จัดการการเดินพิเศษ ========
         UpdateEnPassantTarget(move, piece);
+        HandleCastling(move, piece); // ตรวจสอบการ Castling
+        HandleEnPassantCapture(move, piece);
 
-        // Handle Castling
-        HandleCastling(move, piece);
-
-        // Move the piece
+        // ======== ย้ายหมาก ========
         Board[move.ToX, move.ToY] = piece;
         Board[move.FromX, move.FromY] = 0;
 
-        // Handle Promotion
+        // ======== การ Promote เบี้ย ========
         if (move.PromotionPiece != 0)
             Board[move.ToX, move.ToY] = move.PromotionPiece;
 
-        // Switch turn
         IsWhiteTurn = !IsWhiteTurn;
     }
-
     // ======== Clone Board ========
     public ChessBoard Clone()
     {
@@ -99,27 +139,93 @@ public class ChessBoard
         // Copy En Passant target
         newBoard.EnPassantTarget = this.EnPassantTarget;
 
+
+        // ตรวจสอบให้แน่ใจว่า King อยู่ในกระดาน
+        if (newBoard.Board.Cast<int>().All(p => Math.Abs(p) != 6))
+            throw new InvalidOperationException("Invalid board state: King is missing!");
+
+
         return newBoard;
+    }
+
+    // เพิ่มเมธอด Clone พิเศษสำหรับการตรวจสอบการโจมตี
+    public ChessBoard CloneWithTurn(bool isWhiteTurn)
+    {
+        ChessBoard clone = this.Clone();
+        clone.IsWhiteTurn = isWhiteTurn; // อนุญาตให้ตั้งค่าในคลาสตัวเอง
+        return clone;
     }
 
     // ======== Check Game Over ========
     public bool IsGameOver()
     {
-        List<Move> legalMoves = MoveGenerator.GenerateMoves(this);
-        return legalMoves.Count == 0;
+        return IsCheckmate() || IsDraw();
+    }
+
+    public bool IsCheckmate()
+    {
+        return IsInCheck(IsWhiteTurn) && MoveGenerator.GenerateMoves(this).Count == 0;
+    }
+
+    // ======== Check Draw ========
+    public bool IsDraw()
+    {
+        // Stalemate
+        if (!IsInCheck(IsWhiteTurn) && MoveGenerator.GenerateMoves(this).Count == 0)
+            return true;
+
+        // Threefold Repetition
+        string currentPos = SerializeBoard();
+        if (PositionHistory.FindAll(p => p == currentPos).Count >= 3)
+            return true;
+
+        // Fifty Move Rule
+        if (FiftyMoveCounter >= 100)
+            return true;
+
+        // Insufficient Material
+        return HasInsufficientMaterial();
     }
 
     // ======== Check King Safety ========
     public bool IsInCheck(bool isWhite)
     {
-        int king = isWhite ? 6 : -6;
-        Square kingPos = FindKingPosition(king);
+        int kingValue = isWhite ? 6 : -6;
+        Square kingPos = FindKingPosition(kingValue);
+
+        // หากไม่พบ King ให้รีเทิร์น false เพื่อหลีกเลี่ยง Exception
+        if (kingPos.X == -1 || kingPos.Y == -1)
+            return false;
+
         return IsSquareUnderAttack(kingPos, !isWhite);
     }
 
     // ======== Helper Methods ========
+    private bool HasInsufficientMaterial()
+    {
+        int totalPieces = 0;
+        bool hasPawnOrMajorPiece = false;
+
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                int piece = Math.Abs(Board[x, y]);
+                if (piece == 0) continue;
+
+                totalPieces++;
+                if (piece == 1 || piece == 4 || piece == 5)
+                    hasPawnOrMajorPiece = true;
+            }
+        }
+
+        return totalPieces <= 4 && !hasPawnOrMajorPiece;
+    }
+
     private Square FindKingPosition(int kingValue)
     {
+        if(kingValue != 6 && kingValue != -6)
+            throw new ArgumentException("Invalid king value!");
         for (int x = 0; x < 8; x++)
         {
             for (int y = 0; y < 8; y++)
@@ -131,7 +237,63 @@ public class ChessBoard
         throw new Exception("King not found!");
     }
 
-    private bool IsSquareUnderAttack(Square square, bool byWhite)
+    // ======== Special Move Handlers ========
+    private void HandleCastling(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 6 && Math.Abs(move.FromY - move.ToY) == 2)
+        {
+            bool isWhite = piece > 0;
+            bool isValid = isWhite ?
+                (move.ToY == 6 && !WhiteKingMoved && !WhiteRookKingSideMoved) :
+                (move.ToY == 2 && !BlackKingMoved && !BlackRookQueenSideMoved);
+
+            //if (!isValid)
+            //{
+            //    throw new InvalidOperationException("Invalid castling attempt detected!");
+            //}
+
+            // ย้าย Rook
+            int rookFromY = move.ToY == 6 ? 7 : 0;
+            int rookToY = move.ToY == 6 ? 5 : 3;
+
+            Board[move.FromX, rookToY] = Board[move.FromX, rookFromY];
+            Board[move.FromX, rookFromY] = 0;
+
+            // อัปเดตสถานะ
+            if (isWhite)
+            {
+                WhiteKingMoved = true;
+                if (rookFromY == 7) WhiteRookKingSideMoved = true;
+                if (rookFromY == 0) WhiteRookQueenSideMoved = true;
+            }
+            else
+            {
+                BlackKingMoved = true;
+                if (rookFromY == 7) BlackRookKingSideMoved = true;
+                if (rookFromY == 0) BlackRookQueenSideMoved = true;
+            }
+        }
+    }
+
+    private void UpdateEnPassantTarget(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 1 && Math.Abs(move.ToX - move.FromX) == 2)
+            EnPassantTarget = new Square((move.FromX + move.ToX) / 2, move.FromY);
+        else
+            EnPassantTarget = null;
+    }
+
+    private void HandleEnPassantCapture(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 1 && EnPassantTarget.HasValue &&
+            move.ToX == EnPassantTarget.Value.X && move.ToY == EnPassantTarget.Value.Y)
+        {
+            int captureX = IsWhiteTurn ? move.ToX + 1 : move.ToX - 1;
+            Board[captureX, move.ToY] = 0;
+        }
+    }
+
+    public bool IsSquareUnderAttack(Square square, bool byWhite)
     {
         ChessBoard tempBoard = this.Clone();
         tempBoard.IsWhiteTurn = byWhite;
@@ -145,34 +307,18 @@ public class ChessBoard
         return false;
     }
 
-    private void UpdateEnPassantTarget(Move move, int piece)
+    public string SerializeBoard()
     {
-        if (Math.Abs(piece) == 1 && Math.Abs(move.ToX - move.FromX) == 2)
-            EnPassantTarget = new Square((move.FromX + move.ToX) / 2, move.FromY);
-        else
-            EnPassantTarget = null;
-    }
-
-    private void HandleCastling(Move move, int piece)
-    {
-        if (Math.Abs(piece) == 6) // King move
+        StringBuilder sb = new StringBuilder();
+        for (int x = 0; x < 8; x++)
         {
-            if (piece == 6)
-                WhiteKingMoved = true;
-            else
-                BlackKingMoved = true;
+            for (int y = 0; y < 8; y++)
+            {
+                sb.Append(Board[x, y]);
+                sb.Append(IsWhiteTurn ? '1' : '0');
+            }
         }
-        else if (Math.Abs(piece) == 4) // Rook move
-        {
-            if (move.FromX == 0 && move.FromY == 0)
-                WhiteRookQueenSideMoved = true;
-            else if (move.FromX == 0 && move.FromY == 7)
-                WhiteRookKingSideMoved = true;
-            else if (move.FromX == 7 && move.FromY == 0)
-                BlackRookQueenSideMoved = true;
-            else if (move.FromX == 7 && move.FromY == 7)
-                BlackRookKingSideMoved = true;
-        }
+        return sb.ToString();
     }
 
     // ======== Display Board ========
@@ -200,8 +346,6 @@ public class ChessBoard
         Console.WriteLine($"ตาเล่น: {(IsWhiteTurn ? "ขาว" : "ดำ")}\n");
     }
 }
-
-
 
 public struct Square
 {

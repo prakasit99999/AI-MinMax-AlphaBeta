@@ -1,5 +1,7 @@
 public class Minimax : SearchAlgorithm
 {
+
+
     public override Move FindBestMove(ChessBoard board, int depth)
     {
         List<Move> moves = MoveGenerator.GenerateMoves(board);
@@ -22,7 +24,7 @@ public class Minimax : SearchAlgorithm
         return bestMove;
     }
 
-    private int MinimaxRecursive(ChessBoard board, int depth, bool isMaximizing)
+    protected int MinimaxRecursive(ChessBoard board, int depth, bool isMaximizing)
     {
         if (depth == 0 || board.IsGameOver())
             return Evaluation.Evaluate(board);
