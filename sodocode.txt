@@ -1,0 +1,965 @@
+MoveGenerator.cs
+using System.Collections.Generic;
+
+public static class MoveGenerator
+{
+    public static List<Move> GenerateMoves(ChessBoard board, bool includeKingCaptures = false)
+    {
+        List<Move> pseudoMoves = new List<Move>();
+        int[,] currentBoard = board.Board;
+
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                int piece = currentBoard[x, y];
+                if (piece == 0) continue;
+
+                bool isCurrentPlayerPiece = (board.IsWhiteTurn && piece > 0) || (!board.IsWhiteTurn && piece < 0);
+                if (!isCurrentPlayerPiece) continue;
+
+                switch (Math.Abs(piece))
+                {
+                    case 1:
+                        GeneratePawnMoves(board, x, y, pseudoMoves);
+                        break;
+                    case 2:
+                        GenerateKnightMoves(board, x, y, pseudoMoves);
+                        break;
+                    case 3:
+                        GenerateBishopMoves(board, x, y, pseudoMoves);
+                        break;
+                    case 4:
+                        GenerateRookMoves(board, x, y, pseudoMoves);
+                        break;
+                    case 5:
+                        GenerateQueenMoves(board, x, y, pseudoMoves);
+                        break;
+                    case 6:
+                        GenerateKingMoves(board, x, y, pseudoMoves);
+                        break;
+                }
+            }
+        }
+
+        if (!includeKingCaptures)
+        {
+            pseudoMoves = pseudoMoves
+                .Where(m => Math.Abs(board.Board[m.ToX, m.ToY]) != 6)
+                .ToList();
+        }
+
+        return FilterLegalMoves(board, pseudoMoves);
+    }
+
+
+    // ตรวจสอบการเดินที่ถูกต้องตามกฎ
+    private static List<Move> FilterLegalMoves(ChessBoard board, List<Move> pseudoMoves)
+    {
+        List<Move> legalMoves = new List<Move>();
+        bool isWhite = board.IsWhiteTurn;
+
+        foreach (Move move in pseudoMoves)
+        {
+            ChessBoard tempBoard = board.Clone();
+            tempBoard.MakeMove(move);
+            if (!tempBoard.IsInCheck(isWhite))
+            {
+                legalMoves.Add(move);
+            }
+        }
+        return legalMoves;
+    }
+
+
+    // ========== ฟังก์ชันสร้างการเดินของหมากแต่ละประเภท ==========
+    private static void GeneratePawnMoves(ChessBoard board, int x, int y, List<Move> moves)
+        {
+            int direction = board.IsWhiteTurn ? -1 : 1; // หมากขาวเดินขึ้น (x ลดลง)
+            int startRow = board.IsWhiteTurn ? 6 : 1; // แถวเริ่มต้นของเบี้ย
+
+            // เดินหน้า 1 ช่อง
+            int newX = x + direction;
+            if (newX >= 0 && newX < 8 && board.Board[newX, y] == 0)
+            {
+                AddPawnMove(board, x, y, newX, y, moves);
+            }
+
+            // เดินหน้า 2 ช่อง (เริ่มต้น)
+            if (x == startRow && board.Board[newX, y] == 0 && board.Board[newX + direction, y] == 0)
+            {
+                AddPawnMove(board, x, y, newX + direction, y, moves);
+            }
+
+            // โจมตีทแยง
+            int[] captureY = { y - 1, y + 1 };
+            foreach (int cy in captureY)
+            {
+                if (cy < 0 || cy >= 8) continue;
+                int targetX = x + direction;
+                if (targetX < 0 || targetX >= 8) continue;
+
+                int targetPiece = board.Board[targetX, cy];
+                if (targetPiece != 0 && ((board.IsWhiteTurn && targetPiece < 0) || (!board.IsWhiteTurn && targetPiece > 0)))
+                {
+                    AddPawnMove(board, x, y, targetX, cy, moves);
+                }
+            }
+        }
+
+    private static void AddPawnMove(ChessBoard board, int fromX, int fromY, int toX, int toY, List<Move> moves)
+    {
+        if (toX == 0 || toX == 7)
+        {
+            // สร้างการเดิน Promote ทั้ง 4 ตัว (Queen, Rook, Bishop, Knight)
+            int[] promotionPieces = { 5, 4, 3, 2 };
+            foreach (int promo in promotionPieces)
+            {
+                Move promoMove = new Move(fromX, fromY, toX, toY);
+                promoMove.PromotionPiece = board.IsWhiteTurn ? promo : -promo;
+                moves.Add(promoMove);
+            }
+        }
+        else
+        {
+            moves.Add(new Move(fromX, fromY, toX, toY));
+        }
+    }
+
+    private static void GenerateKnightMoves(ChessBoard board, int x, int y, List<Move> moves)
+    {
+        int[,] knightMoves = {
+        {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
+        {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
+    };
+
+        for (int i = 0; i < knightMoves.GetLength(0); i++)
+        {
+            int newX = x + knightMoves[i, 0];
+            int newY = y + knightMoves[i, 1];
+
+            if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
+            {
+                int targetPiece = board.Board[newX, newY];
+                if (targetPiece == 0 || (board.IsWhiteTurn ? targetPiece < 0 : targetPiece > 0))
+                {
+                    Move move = new Move(x, y, newX, newY);
+                    ChessBoard tempBoard = board.Clone();
+                    tempBoard.MakeMove(move);
+                    if (!tempBoard.IsInCheck(board.IsWhiteTurn))
+                    {
+                        moves.Add(move);
+                    }
+                }
+            }
+        }
+    }
+    private static void GenerateBishopMoves(ChessBoard board, int x, int y, List<Move> moves)
+    {
+        int[,] directions = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+        GenerateSlidingMoves(board, x, y, directions, moves);
+    }
+
+    private static void GenerateRookMoves(ChessBoard board, int x, int y, List<Move> moves)
+    {
+        int[,] directions = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        GenerateSlidingMoves(board, x, y, directions, moves);
+    }
+
+    private static void GenerateQueenMoves(ChessBoard board, int x, int y, List<Move> moves)
+    {
+        GenerateBishopMoves(board, x, y, moves);
+        GenerateRookMoves(board, x, y, moves);
+    }
+
+    private static void GenerateKingMoves(ChessBoard board, int x, int y, List<Move> moves)
+    {
+        int[,] kingMoves = {
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+            {1, 1}, {1, -1}, {-1, 1}, {-1, -1}
+        };
+
+        // เดินปกติ
+        for (int i = 0; i < kingMoves.GetLength(0); i++)
+        {
+            int newX = x + kingMoves[i, 0];
+            int newY = y + kingMoves[i, 1];
+
+            if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
+            {
+                int targetPiece = board.Board[newX, newY];
+                if (targetPiece == 0 || (board.IsWhiteTurn ? targetPiece < 0 : targetPiece > 0))
+                {
+                    moves.Add(new Move(x, y, newX, newY));
+                }
+            }
+        }
+
+        // Castling
+        int piece = board.Board[x, y];
+        bool isWhite = piece > 0;
+        int row = isWhite ? 7 : 0;
+
+        // Kingside Castling
+        if (CanCastleKingside(board, isWhite))
+        {
+            moves.Add(new Move(x, y, row, 6));
+        }
+
+        // Queenside Castling
+        if (CanCastleQueenside(board, isWhite))
+        {
+            moves.Add(new Move(x, y, row, 2));
+        }
+    }
+    
+    // ========== ตรวจสอบเงื่อนไข Castling ==========
+    private static bool CanCastleKingside(ChessBoard board, bool isWhite)
+    {
+        int row = isWhite ? 7 : 0;
+        bool kingMoved = isWhite ? board.WhiteKingMoved : board.BlackKingMoved;
+        bool rookMoved = isWhite ? board.WhiteRookKingSideMoved : board.BlackRookKingSideMoved;
+
+        // ตรวจสอบว่า Rook ยังอยู่ที่ตำแหน่งเริ่มต้น และไม่ถูกกิน
+        bool rookPresent = board.Board[row, 7] == (isWhite ? 4 : -4);
+
+
+        return !kingMoved && !rookMoved && rookPresent &&
+               board.Board[row, 5] == 0 && board.Board[row, 6] == 0 &&
+               !IsSquareUnderAttack(board, new Square(row, 4), !isWhite) &&
+               !IsSquareUnderAttack(board, new Square(row, 5), !isWhite) &&
+               !IsSquareUnderAttack(board, new Square(row, 6), !isWhite);
+    }
+
+    private static bool CanCastleQueenside(ChessBoard board, bool isWhite)
+    {
+        int row = isWhite ? 7 : 0;
+        bool kingMoved = isWhite ? board.WhiteKingMoved : board.BlackKingMoved;
+        bool rookMoved = isWhite ? board.WhiteRookQueenSideMoved : board.BlackRookQueenSideMoved;
+
+        // ตรวจสอบว่า Rook ยังอยู่ที่ตำแหน่งเริ่มต้น และไม่ถูกกิน
+        bool rookPresent = board.Board[row, 0] == (isWhite ? 4 : -4);
+
+
+        return !kingMoved && !rookMoved && rookPresent &&
+               board.Board[row, 1] == 0 && board.Board[row, 2] == 0 && board.Board[row, 3] == 0 &&
+               !IsSquareUnderAttack(board, new Square(row, 4), !isWhite) &&
+               !IsSquareUnderAttack(board, new Square(row, 3), !isWhite) &&
+               !IsSquareUnderAttack(board, new Square(row, 2), !isWhite);
+    }
+
+    // ========== ตรวจสอบความปลอดภัย ==========
+    public static bool IsSquareUnderAttack(ChessBoard board, Square square, bool byWhite)
+    {
+        ChessBoard tempBoard = board.Clone();
+        tempBoard = tempBoard.CloneWithTurn(byWhite); // Use CloneWithTurn to set the turn
+        List<Move> attacks = MoveGenerator.GenerateMoves(tempBoard); // Removed includeKingCaptures parameter
+        return attacks.Any(m => m.ToX == square.X && m.ToY == square.Y);
+    }
+
+    private static void GenerateSlidingMoves(ChessBoard board, int x, int y, int[,] directions, List<Move> moves)
+    {
+        for (int d = 0; d < directions.GetLength(0); d++)
+        {
+            int dx = directions[d, 0];
+            int dy = directions[d, 1];
+
+            for (int step = 1; step < 8; step++)
+            {
+                int newX = x + dx * step;
+                int newY = y + dy * step;
+
+                if (newX < 0 || newX >= 8 || newY < 0 || newY >= 8) break;
+
+                int targetPiece = board.Board[newX, newY];
+                if (targetPiece == 0)
+                {
+                    moves.Add(new Move(x, y, newX, newY));
+                }
+                else
+                {
+                    if ((board.IsWhiteTurn && targetPiece < 0) || (!board.IsWhiteTurn && targetPiece > 0))
+                    {
+                        moves.Add(new Move(x, y, newX, newY));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+//ChessBoard.cs
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+public class ChessBoard
+{
+    // ======== Properties ========
+    public int[,] Board { get; protected set; }
+    public bool IsWhiteTurn { get; protected set; }
+
+    // Castling Flags
+    public bool WhiteKingMoved { get; private set; }
+    public bool WhiteRookKingSideMoved { get; private set; }
+    public bool WhiteRookQueenSideMoved { get; private set; }
+    public bool BlackKingMoved { get; private set; }
+    public bool BlackRookKingSideMoved { get; private set; }
+    public bool BlackRookQueenSideMoved { get; private set; }
+
+    // En Passant
+    public Square? EnPassantTarget { get; private set; }
+
+    // Draw Conditions
+    public List<string> PositionHistory { get; } = new List<string>();
+    public int FiftyMoveCounter { get; private set; }
+
+
+
+    // ======== Constructor ========
+    public ChessBoard()
+    {
+        Board = new int[8, 8];
+        IsWhiteTurn = true;
+        InitializeBoard();
+    }
+
+    // ======== Initialize Board ========
+    private void InitializeBoard()
+    {
+        // White Pieces (แถว 1 และ 2 ใน chess notation)
+        Board[7, 0] = 4; // Rook (a1)
+        Board[7, 1] = 2; // Knight (b1)
+        Board[7, 2] = 3; // Bishop (c1)
+        Board[7, 3] = 5; // Queen (d1)
+        Board[7, 4] = 6; // King (e1)
+        Board[7, 5] = 3; // Bishop (f1)
+        Board[7, 6] = 2; // Knight (g1)
+        Board[7, 7] = 4; // Rook (h1)
+
+        // White Pawns (แถว 2 ใน chess notation)
+        for (int i = 0; i < 8; i++)
+            Board[6, i] = 1;
+
+        // Black Pieces (แถว 8 และ 7 ใน chess notation)
+        Board[0, 0] = -4; // Rook (a8)
+        Board[0, 1] = -2; // Knight (b8)
+        Board[0, 2] = -3; // Bishop (c8)
+        Board[0, 3] = -5; // Queen (d8)
+        Board[0, 4] = -6; // King (e8)
+        Board[0, 5] = -3; // Bishop (f8)
+        Board[0, 6] = -2; // Knight (g8)
+        Board[0, 7] = -4; // Rook (h8)
+
+        // Black Pawns (แถว 7 ใน chess notation)
+        for (int i = 0; i < 8; i++)
+            Board[1, i] = -1;
+    }
+
+    // ======== Make Move ========
+    public void MakeMove(Move move)
+    {
+        int piece = Board[move.FromX, move.FromY];
+        int targetPiece = Board[move.ToX, move.ToY];
+
+        // ======== อัปเดตกฎ 50 การเดิน ========
+        if (Math.Abs(piece) == 1 || targetPiece != 0)
+            FiftyMoveCounter = 0;
+        else
+            FiftyMoveCounter++;
+
+        // ======== บันทึกประวัติกระดาน ========
+        string currentPosition = SerializeBoard();
+        PositionHistory.Add(currentPosition);
+
+        // ======== อัปเดตสถานะ King และ Rook เมื่อเคลื่อนที่ ========
+        if (Math.Abs(piece) == 6) // King เคลื่อนที่
+        {
+            if (piece > 0) WhiteKingMoved = true;
+            else BlackKingMoved = true;
+        }
+        else if (Math.Abs(piece) == 4) // Rook เคลื่อนที่
+        {
+            // ตรวจสอบตำแหน่งเริ่มต้นของ Rook
+            if (piece > 0) // White Rook
+            {
+                if (move.FromX == 7 && move.FromY == 7)
+                    WhiteRookKingSideMoved = true;
+                else if (move.FromX == 7 && move.FromY == 0)
+                    WhiteRookQueenSideMoved = true;
+            }
+            else // Black Rook
+            {
+                if (move.FromX == 0 && move.FromY == 7)
+                    BlackRookKingSideMoved = true;
+                else if (move.FromX == 0 && move.FromY == 0)
+                    BlackRookQueenSideMoved = true;
+            }
+        }
+
+        // ======== จัดการการเดินพิเศษ ========
+        UpdateEnPassantTarget(move, piece);
+        HandleCastling(move, piece); // ตรวจสอบการ Castling
+        HandleEnPassantCapture(move, piece);
+
+        // ======== ย้ายหมาก ========
+        Board[move.ToX, move.ToY] = piece;
+        Board[move.FromX, move.FromY] = 0;
+
+        // ======== การ Promote เบี้ย ========
+        if (move.PromotionPiece != 0)
+            Board[move.ToX, move.ToY] = move.PromotionPiece;
+
+        IsWhiteTurn = !IsWhiteTurn;
+    }
+    // ======== Clone Board ========
+    public ChessBoard Clone()
+    {
+        ChessBoard newBoard = new ChessBoard();
+        newBoard.Board = (int[,])this.Board.Clone(); // Deep copy of the board array
+        newBoard.IsWhiteTurn = this.IsWhiteTurn;
+
+        // Copy castling flags
+        newBoard.WhiteKingMoved = this.WhiteKingMoved;
+        newBoard.WhiteRookKingSideMoved = this.WhiteRookKingSideMoved;
+        newBoard.WhiteRookQueenSideMoved = this.WhiteRookQueenSideMoved;
+        newBoard.BlackKingMoved = this.BlackKingMoved;
+        newBoard.BlackRookKingSideMoved = this.BlackRookKingSideMoved;
+        newBoard.BlackRookQueenSideMoved = this.BlackRookQueenSideMoved;
+
+        // Copy En Passant target
+        newBoard.EnPassantTarget = this.EnPassantTarget;
+
+
+        // ตรวจสอบให้แน่ใจว่า King อยู่ในกระดาน
+        if (newBoard.Board.Cast<int>().All(p => Math.Abs(p) != 6))
+            throw new InvalidOperationException("Invalid board state: King is missing!");
+
+
+        return newBoard;
+    }
+
+    // เพิ่มเมธอด Clone พิเศษสำหรับการตรวจสอบการโจมตี
+    public ChessBoard CloneWithTurn(bool isWhiteTurn)
+    {
+        ChessBoard clone = this.Clone();
+        clone.IsWhiteTurn = isWhiteTurn; // อนุญาตให้ตั้งค่าในคลาสตัวเอง
+        return clone;
+    }
+
+    // ======== Check Game Over ========
+    public bool IsGameOver()
+    {
+        return IsCheckmate() || IsDraw();
+    }
+
+    public bool IsCheckmate()
+    {
+        return IsInCheck(IsWhiteTurn) && MoveGenerator.GenerateMoves(this).Count == 0;
+    }
+
+    // ======== Check Draw ========
+    public bool IsDraw()
+    {
+        // Stalemate
+        if (!IsInCheck(IsWhiteTurn) && MoveGenerator.GenerateMoves(this).Count == 0)
+            return true;
+
+        // Threefold Repetition
+        string currentPos = SerializeBoard();
+        if (PositionHistory.FindAll(p => p == currentPos).Count >= 3)
+            return true;
+
+        // Fifty Move Rule
+        if (FiftyMoveCounter >= 100)
+            return true;
+
+        // Insufficient Material
+        return HasInsufficientMaterial();
+    }
+
+    // ======== Check King Safety ========
+    public bool IsInCheck(bool isWhite)
+    {
+        int kingValue = isWhite ? 6 : -6;
+        Square kingPos = FindKingPosition(kingValue);
+
+        // หากไม่พบ King ให้รีเทิร์น false เพื่อหลีกเลี่ยง Exception
+        if (kingPos.X == -1 || kingPos.Y == -1)
+            return false;
+
+        return IsSquareUnderAttack(kingPos, !isWhite);
+    }
+
+    // ======== Helper Methods ========
+    private bool HasInsufficientMaterial()
+    {
+        int totalPieces = 0;
+        bool hasPawnOrMajorPiece = false;
+
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                int piece = Math.Abs(Board[x, y]);
+                if (piece == 0) continue;
+
+                totalPieces++;
+                if (piece == 1 || piece == 4 || piece == 5)
+                    hasPawnOrMajorPiece = true;
+            }
+        }
+
+        return totalPieces <= 4 && !hasPawnOrMajorPiece;
+    }
+
+    private Square FindKingPosition(int kingValue)
+    {
+        if(kingValue != 6 && kingValue != -6)
+            throw new ArgumentException("Invalid king value!");
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                if (Board[x, y] == kingValue)
+                    return new Square(x, y);
+            }
+        }
+        throw new Exception("King not found!");
+    }
+
+    // ======== Special Move Handlers ========
+    private void HandleCastling(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 6 && Math.Abs(move.FromY - move.ToY) == 2)
+        {
+            bool isWhite = piece > 0;
+            bool isValid = isWhite ?
+                (move.ToY == 6 && !WhiteKingMoved && !WhiteRookKingSideMoved) :
+                (move.ToY == 2 && !BlackKingMoved && !BlackRookQueenSideMoved);
+
+            if (!isValid)
+            {
+                throw new InvalidOperationException("Invalid castling attempt detected!");
+            }
+
+            // ย้าย Rook
+            int rookFromY = move.ToY == 6 ? 7 : 0;
+            int rookToY = move.ToY == 6 ? 5 : 3;
+
+            Board[move.FromX, rookToY] = Board[move.FromX, rookFromY];
+            Board[move.FromX, rookFromY] = 0;
+
+            // อัปเดตสถานะ
+            if (isWhite)
+            {
+                WhiteKingMoved = true;
+                if (rookFromY == 7) WhiteRookKingSideMoved = true;
+                if (rookFromY == 0) WhiteRookQueenSideMoved = true;
+            }
+            else
+            {
+                BlackKingMoved = true;
+                if (rookFromY == 7) BlackRookKingSideMoved = true;
+                if (rookFromY == 0) BlackRookQueenSideMoved = true;
+            }
+        }
+    }
+
+    private void UpdateEnPassantTarget(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 1 && Math.Abs(move.ToX - move.FromX) == 2)
+            EnPassantTarget = new Square((move.FromX + move.ToX) / 2, move.FromY);
+        else
+            EnPassantTarget = null;
+    }
+
+    private void HandleEnPassantCapture(Move move, int piece)
+    {
+        if (Math.Abs(piece) == 1 && EnPassantTarget.HasValue &&
+            move.ToX == EnPassantTarget.Value.X && move.ToY == EnPassantTarget.Value.Y)
+        {
+            int captureX = IsWhiteTurn ? move.ToX + 1 : move.ToX - 1;
+            Board[captureX, move.ToY] = 0;
+        }
+    }
+
+    public bool IsSquareUnderAttack(Square square, bool byWhite)
+    {
+        ChessBoard tempBoard = this.Clone();
+        tempBoard.IsWhiteTurn = byWhite;
+        List<Move> attacks = MoveGenerator.GenerateMoves(tempBoard);
+
+        foreach (Move move in attacks)
+        {
+            if (move.ToX == square.X && move.ToY == square.Y)
+                return true;
+        }
+        return false;
+    }
+
+    public string SerializeBoard()
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                sb.Append(Board[x, y]);
+                sb.Append(IsWhiteTurn ? '1' : '0');
+            }
+        }
+        return sb.ToString();
+    }
+
+    // ======== Display Board ========
+    public void PrintBoard()
+    {
+        Dictionary<int, string> symbols = new Dictionary<int, string>
+        {
+            { 1, "♙" }, { -1, "♟" }, // เบี้ย
+            { 2, "♘" }, { -2, "♞" }, // ม้า
+            { 3, "♗" }, { -3, "♝" }, // บิชอป
+            { 4, "♖" }, { -4, "♜" }, // เรือ
+            { 5, "♕" }, { -5, "♛" }, // ควีน
+            { 6, "♔" }, { -6, "♚" }, // ราชา
+            { 0, "·" }  // ช่องว่าง
+        };
+        Console.WriteLine("  a  b  c  d  e  f  g  h");
+        for (int x = 0; x < 8; x++)
+        {
+            Console.Write($"{8 - x} ");
+            for (int y = 0; y < 8; y++)
+                Console.Write($"{symbols[Board[x, y]]} ");
+            Console.WriteLine($"{8 - x}");
+        }
+        Console.WriteLine("  a  b  c  d  e  f  g  h");
+        Console.WriteLine($"ตาเล่น: {(IsWhiteTurn ? "ขาว" : "ดำ")}\n");
+    }
+}
+
+public struct Square
+{
+    public int X { get; }
+    public int Y { get; }
+
+    public Square(int x, int y)
+    {
+        X = x;
+        Y = y;
+    }
+}
+//MockBoard.cs
+using System;
+
+public class MockBoard : ChessBoard
+{
+    // ======== Constructor ========
+    public MockBoard(int[,] customBoard, bool isWhiteTurn)
+    {
+        Board = customBoard;
+        IsWhiteTurn = isWhiteTurn; // ตอนนี้สามารถตั้งค่าได้แล้ว
+    }
+
+    // ======== แสดงกระดานในคอนโซล ========
+    public new void PrintBoard()
+    {
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                Console.Write($"{Board[x, y],3}"); // จัดรูปแบบให้สวยงาม
+            }
+            Console.WriteLine();
+        }
+        Console.WriteLine($"Turn: {(IsWhiteTurn ? "White" : "Black")}\n");
+    }
+}
+
+//Move.cs
+public class Move
+{
+    // ======== Properties ========
+    public int FromX { get; }      // ตำแหน่งแถวเริ่มต้น
+    public int FromY { get; }      // ตำแหน่งคอลัมน์เริ่มต้น
+    public int ToX { get; }        // ตำแหน่งแถวปลายทาง
+    public int ToY { get; }        // ตำแหน่งคอลัมน์ปลายทาง
+    public int PromotionPiece { get; set; } // ชนิดหมากเมื่อ Promote (0 = ไม่ Promote)
+
+    // ======== Constructor ========
+    public Move(int fromX, int fromY, int toX, int toY, int promotionPiece = 0)
+    {
+        FromX = fromX;
+        FromY = fromY;
+        ToX = toX;
+        ToY = toY;
+        PromotionPiece = promotionPiece;
+    }
+
+    // ======== Override ToString() ========
+    public override string ToString()
+    {
+        return $"({FromX}, {FromY}) -> ({ToX}, {ToY})" +
+               (PromotionPiece != 0 ? $" [Promote to {PromotionPiece}]" : "");
+    }
+}
+
+//Program.cs
+using System;
+using System.Collections.Generic;
+
+class Program
+{
+    static void Main()
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        bool exit = false;
+
+        while (!exit)
+        {
+            Console.Clear();
+            Console.WriteLine("=== หมากรุก AI ===");
+            Console.WriteLine("1. Player vs AI");
+            Console.WriteLine("2. AI vs AI");
+            Console.WriteLine("3. ออก");
+            Console.Write("เลือกโหมด: ");
+            string input = Console.ReadLine();
+
+            switch (input)
+            {
+                case "1":
+                    PlayPlayerVsAI();
+                    break;
+                case "2":
+                    PlayAIVsAI();
+                    break;
+                case "3":
+                    exit = true;
+                    break;
+                default:
+                    Console.WriteLine("คำสั่งไม่ถูกต้อง!");
+                    Console.ReadKey();
+                    break;
+            }
+        }
+    }
+
+    // ======== โหมด Player vs AI ========
+    static void PlayPlayerVsAI()
+    {
+        // เลือกระดับความยาก
+        AICore.Difficulty difficulty = SelectDifficulty();
+
+        ChessBoard board = new ChessBoard();
+        AICore ai = new AICore();
+
+        while (!board.IsGameOver())
+        {
+            Console.Clear();
+            board.PrintBoard();
+
+            if (board.IsWhiteTurn)
+            {
+                // ผู้เล่นเดิน (ขาว)
+                Console.WriteLine("=== ตาของคุณ (White) ===");
+                Console.Write("การเดินของคุณ (เช่น e2e4): ");
+                string moveInput = Console.ReadLine().ToLower();
+
+                if (ParseMove(moveInput, board, out Move playerMove))
+                {
+                    if (IsLegalMove(board, playerMove))
+                    {
+                        board.MakeMove(playerMove);
+                    }
+                    else
+                    {
+                        Console.WriteLine("การเดินไม่ถูกต้อง! กดปุ่มเพื่อลองใหม่...");
+                        Console.ReadKey();
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("รูปแบบไม่ถูกต้อง! กดปุ่มเพื่อลองใหม่...");
+                    Console.ReadKey();
+                }
+            }
+            else
+            {
+                // AI เดิน (ดำ) ตามระดับความยากที่เลือก
+                Console.WriteLine("=== AI กำลังคิด... ===");
+                Move aiMove = ai.FindBestMove(board, difficulty);
+                board.MakeMove(aiMove);
+                PrintMove(aiMove, "AI");
+                Console.ReadKey();
+            }
+        }
+
+        Console.Clear();
+        Console.WriteLine("=== จบเกม ===");
+        board.PrintBoard();
+        Console.WriteLine("กดปุ่มเพื่อกลับสู่เมนูหลัก...");
+        Console.ReadKey();
+    }
+
+    // ======== โหมด AI vs AI ========
+    static void PlayAIVsAI()
+    {
+        // เลือกระดับความยากสำหรับ White AI และ Black AI
+        AICore.Difficulty whiteDifficulty = SelectDifficulty("White AI");
+        AICore.Difficulty blackDifficulty = SelectDifficulty("Black AI");
+
+        ChessBoard board = new ChessBoard();
+        AICore whiteAI = new AICore();
+        AICore blackAI = new AICore();
+
+        while (!board.IsGameOver())
+        {
+            Console.Clear();
+            board.PrintBoard();
+
+            Move aiMove;
+            if (board.IsWhiteTurn)
+            {
+                aiMove = whiteAI.FindBestMove(board, whiteDifficulty);
+                PrintMove(aiMove, $"White AI (ระดับ {whiteDifficulty})");
+            }
+            else
+            {
+                aiMove = blackAI.FindBestMove(board, blackDifficulty);
+                PrintMove(aiMove, $"Black AI (ระดับ {blackDifficulty})");
+            }
+
+            board.MakeMove(aiMove);
+            Console.WriteLine("กดปุ่มเพื่อดำเนินการต่อ...");
+            Console.ReadKey();
+        }
+
+        Console.Clear();
+        Console.WriteLine("=== จบเกม ===");
+        board.PrintBoard();
+        Console.WriteLine("กดปุ่มเพื่อกลับสู่เมนูหลัก...");
+        Console.ReadKey();
+    }
+
+    // ======== ตรวจสอบการเดินที่ถูกต้อง ========
+    static bool IsLegalMove(ChessBoard board, Move move)
+    {
+        List<Move> legalMoves = MoveGenerator.GenerateMoves(board);
+        foreach (Move legalMove in legalMoves)
+        {
+            if (legalMove.FromX == move.FromX && legalMove.FromY == move.FromY &&
+                legalMove.ToX == move.ToX && legalMove.ToY == move.ToY)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ======== แปลงคำสั่งผู้เล่นเป็น Move Object ========
+    // แก้ไขพารามิเตอร์เมธอดให้รับ ChessBoard
+    static bool ParseMove(string input, ChessBoard board, out Move move)
+    {
+        move = null;
+        input = input.Replace(" ", "").Replace("-", "");
+        if (input.Length < 4 || input.Length > 5) return false;
+
+        try
+        {
+            // แปลงส่วนการเดิน
+            int fromY = input[0] - 'a';
+            int toY = input[2] - 'a';
+            int fromX = 8 - (input[1] - '0');
+            int toX = 8 - (input[3] - '0');
+
+            move = new Move(fromX, fromY, toX, toY);
+
+            // ตรวจสอบ Promotion
+            if (input.Length == 5)
+            {
+                int promoPiece = input[4] switch
+                {
+                    'q' => 5, // Queen
+                    'r' => 4, // Rook
+                    'b' => 3, // Bishop
+                    'n' => 2, // Knight
+                    _ => 0
+                };
+                if (promoPiece == 0) return false;
+                move.PromotionPiece = board.IsWhiteTurn ? promoPiece : -promoPiece;
+            }
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ======== เลือกระดับความยาก ========
+    static AICore.Difficulty SelectDifficulty()
+    {
+        Console.Clear();
+        Console.WriteLine("=== เลือกระดับความยาก ===");
+        Console.WriteLine("1. ง่าย (Easy)");
+        Console.WriteLine("2. ปานกลาง (Medium)");
+        Console.WriteLine("3. ยาก (Hard)");
+        Console.Write("เลือก: ");
+        string input = Console.ReadLine();
+
+        switch (input)
+        {
+            case "1": return AICore.Difficulty.Easy;
+            case "2": return AICore.Difficulty.Medium;
+            case "3": return AICore.Difficulty.Hard;
+            default:
+                Console.WriteLine("ใช้ระดับยากเป็นค่าเริ่มต้น");
+                return AICore.Difficulty.Easy;
+        }
+    }
+    // ======== เลือกระดับความยากสำหรับ AI ========
+    static AICore.Difficulty SelectDifficulty(string aiName)
+    {
+        Console.Clear();
+        Console.WriteLine($"=== ระดับความยากของ {aiName} ===");
+        Console.WriteLine("1. ง่าย (Easy)");
+        Console.WriteLine("2. ปานกลาง (Medium)");
+        Console.WriteLine("3. ยาก (Hard)");
+        Console.Write("เลือก: ");
+        string input = Console.ReadLine();
+
+        switch (input)
+        {
+            case "1": return AICore.Difficulty.Easy;
+            case "2": return AICore.Difficulty.Medium;
+            case "3": return AICore.Difficulty.Hard;
+            default:
+                Console.WriteLine("ใช้ระดับยากเป็นค่าเริ่มต้น");
+                return AICore.Difficulty.Hard;
+        }
+    }
+
+  
+
+    // ======== แสดงการเดิน ========
+    static void PrintMove(Move move, string player)
+    {
+        string from = $"{(char)('a' + move.FromY)}{8 - move.FromX}";
+        string to = $"{(char)('a' + move.ToY)}{8 - move.ToX}";
+        string promo = move.PromotionPiece != 0 ? 
+            $" [Promote to {GetPieceSymbol(move.PromotionPiece)}]" : "";
+        Console.WriteLine($"{player} เดิน: {from} -> {to}{promo}");
+    }
+
+    private static string GetPieceSymbol(int piece)
+    {
+        return Math.Abs(piece) switch
+        {
+            5 => "Queen",
+            4 => "Rook",
+            3 => "Bishop",
+            2 => "Knight",
+            _ => ""
+        };
+    }
+}
