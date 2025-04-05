@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 public static class MoveGenerator
 {
     public static List<Move> GenerateMoves(ChessBoard board)
@@ -121,32 +119,41 @@ public static class MoveGenerator
 
     private static void GenerateKnightMoves(ChessBoard board, int x, int y, List<Move> moves)
     {
-        int[,] knightMoves = {
-        {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
-        {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
-    };
-
-        for (int i = 0; i < knightMoves.GetLength(0); i++)
+        try
         {
-            int newX = x + knightMoves[i, 0];
-            int newY = y + knightMoves[i, 1];
+            int[,] knightMoves = {
+            {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
+            {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
+        };
 
-            if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
+            for (int i = 0; i < knightMoves.GetLength(0); i++)
             {
-                int targetPiece = board.Board[newX, newY];
-                if (targetPiece == 0 || (board.IsWhiteTurn ? targetPiece < 0 : targetPiece > 0))
+                int newX = x + knightMoves[i, 0];
+                int newY = y + knightMoves[i, 1];
+
+                if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
                 {
-                    Move move = new Move(x, y, newX, newY);
-                    ChessBoard tempBoard = board.Clone();
-                    tempBoard.MakeMove(move);
-                    if (!tempBoard.IsInCheck(board.IsWhiteTurn))
+                    int targetPiece = board.Board[newX, newY];
+                    if (targetPiece == 0 || (board.IsWhiteTurn ? targetPiece < 0 : targetPiece > 0))
                     {
-                        moves.Add(move);
+                        Move move = new Move(x, y, newX, newY);
+                        ChessBoard tempBoard = board.Clone();
+                        tempBoard.MakeMove(move);
+                        if (!tempBoard.IsInCheck(board.IsWhiteTurn))
+                        {
+                            moves.Add(move);
+                        }
                     }
                 }
             }
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
     }
+
+
     private static void GenerateBishopMoves(ChessBoard board, int x, int y, List<Move> moves)
     {
         int[,] directions = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq; 
+
 
 public class ChessBoard
 {
@@ -295,30 +297,121 @@ public class ChessBoard
 
     public bool IsSquareUnderAttack(Square square, bool byWhite)
     {
-        ChessBoard tempBoard = this.Clone();
-        tempBoard.IsWhiteTurn = byWhite;
-        List<Move> attacks = MoveGenerator.GenerateMoves(tempBoard);
-
-        foreach (Move move in attacks)
+        try
         {
-            if (move.ToX == square.X && move.ToY == square.Y)
+            int attackerColor = byWhite ? 1 : -1;
+
+            // 1. ตรวจสอบ Knight
+            int[,] knightMoves = { { 2, 1 }, { 2, -1 }, { -2, 1 }, { -2, -1 }, { 1, 2 }, { 1, -2 }, { -1, 2 }, { -1, -2 } };
+            for (int i = 0; i < knightMoves.GetLength(0); i++)
+            {
+                int dx = knightMoves[i, 0];
+                int dy = knightMoves[i, 1];
+                int x = square.X + dx;
+                int y = square.Y + dy;
+                if (x >= 0 && x < 8 && y >= 0 && y < 8)
+                {
+                    int piece = Board[x, y];
+                    if (piece == 2 * attackerColor) return true;
+                }
+            }
+
+            // 2. ตรวจสอบ Pawn
+            int pawnDir = byWhite ? -1 : 1;
+            int[] pawnCaptureY = { square.Y - 1, square.Y + 1 };
+            foreach (int y in pawnCaptureY)
+            {
+                int x = square.X + pawnDir;
+                if (x >= 0 && x < 8 && y >= 0 && y < 8)
+                {
+                    int piece = Board[x, y];
+                    if (piece == 1 * attackerColor) return true;
+                }
+            }
+
+            // 3. ตรวจสอบ King
+            int[,] kingMoves = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+            for (int i = 0; i < kingMoves.GetLength(0); i++)
+            {
+                int dx = kingMoves[i, 0];
+                int dy = kingMoves[i, 1];
+                int x = square.X + dx;
+                int y = square.Y + dy;
+                if (x >= 0 && x < 8 && y >= 0 && y < 8)
+                {
+                    int piece = Board[x, y];
+                    if (piece == 6 * attackerColor) return true;
+                }
+            }
+
+            // 4. ตรวจสอบแนวตรง (Rook/Queen)
+            if (CheckLineAttack(square, new int[,] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }, attackerColor, new[] { 4, 5 }))
                 return true;
+
+            // 5. ตรวจสอบแนวทแยง (Bishop/Queen)
+            if (CheckLineAttack(square, new int[,] { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }, attackerColor, new[] { 3, 5 }))
+                return true;
+
+            return false;
         }
-        return false;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in IsSquareUnderAttack: {ex.Message}");
+            return false;
+        }
+    }
+    private bool CheckLineAttack(Square square, int[,] directions, int attackerColor, int[] validPieces)
+    {
+        try
+        {
+            for (int d = 0; d < directions.GetLength(0); d++)
+            {
+                int dx = directions[d, 0];
+                int dy = directions[d, 1];
+                for (int step = 1; step < 8; step++)
+                {
+                    int x = square.X + dx * step;
+                    int y = square.Y + dy * step;
+                    if (x < 0 || x >= 8 || y < 0 || y >= 8) break;
+
+                    int piece = Board[x, y];
+                    if (piece != 0)
+                    {
+                        if ((piece * attackerColor > 0) && validPieces.Contains(Math.Abs(piece)))
+                            return true;
+                        break;
+                    }
+                }
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in CheckLineAttack: {ex.Message}");
+            return false;
+        }
     }
 
     public string SerializeBoard()
     {
         StringBuilder sb = new StringBuilder();
-        for (int x = 0; x < 8; x++)
+        try
         {
-            for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
             {
-                sb.Append(Board[x, y]);
-                sb.Append(IsWhiteTurn ? '1' : '0');
+                for (int y = 0; y < 8; y++)
+                {
+                    sb.Append(Board[x, y]); // เพิ่มค่าหมากในตำแหน่ง [x,y]
+                }
+                sb.Append(IsWhiteTurn ? '1' : '0'); // เพิ่มสถานะตาเล่น (ต่อแถว)
             }
+            return sb.ToString();
         }
-        return sb.ToString();
+        catch (Exception ex) // แก้ไขการสะกด Exception
+        {
+            Console.WriteLine($"เกิดข้อผิดพลาดในการสร้างบอร์ด: {ex.Message}");
+            return ""; // คืนค่าสตริงว่างหากเกิดข้อผิดพลาด
+        }
     }
 
     // ======== Display Board ========
